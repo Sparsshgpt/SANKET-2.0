@@ -19,12 +19,19 @@ class BroadcastRequest(BaseModel):
     risk_score: float
     risk_class: str
     message: str
+    audience: Optional[str] = 'All Authorities'
+    severity: Optional[str] = None
 
 class BroadcastResponse(BaseModel):
     status: str
     message: str
     broadcast_id: str
     timestamp: str
+    state: Optional[str] = None
+    risk_score: Optional[float] = None
+    risk_class: Optional[str] = None
+    audience: Optional[str] = None
+    severity: Optional[str] = None
 
 
 DATA_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'data', 'SANKET_Geographically_Corrected_20000.csv'))
@@ -138,11 +145,44 @@ def predict(input_data: PredictionInput):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Prediction error: {str(e)}")
 
+# Global in-memory broadcast storage with realistic initial regional alerts
+_broadcasts = [
+    {
+        "broadcast_id": "BCAST-AS-0921",
+        "state": "Assam",
+        "risk_class": "CRITICAL",
+        "risk_score": 88.4,
+        "audience": "State & District Authorities",
+        "severity": "Critical",
+        "message": "URGENT RED ALERT: Severe rainfall intensity detected in Dima Hasao and Karbi Anglong districts. High vulnerability to slope failure along NH-27. Immediate slope stabilization and traffic diversion advisory in effect.",
+        "timestamp": "2026-09-19T17:45:00Z",
+        "status": "Delivered"
+    },
+    {
+        "broadcast_id": "BCAST-ML-0814",
+        "state": "Meghalaya",
+        "risk_class": "HIGH",
+        "risk_score": 73.2,
+        "audience": "Field Teams & Local Administration",
+        "severity": "High",
+        "message": "ORANGE ALERT: Excessive 72-hour precipitation recorded in East Khasi Hills and Sohra ridge. Soil moisture levels approaching saturation threshold. Field response teams deployed for active monitoring.",
+        "timestamp": "2026-09-19T15:30:00Z",
+        "status": "Delivered"
+    }
+]
+
 @router.get("/hotspots")
-def get_hotspots():
+def get_hotspots(state: Optional[str] = None, risk_class: Optional[str] = None, limit: Optional[int] = None):
     try:
         process_hotspots_and_summary()
-        return _hotspots_cache
+        spots = _hotspots_cache
+        if state:
+            spots = [s for s in spots if s.get("state", "").lower() == state.lower()]
+        if risk_class and risk_class.upper() != "ALL":
+            spots = [s for s in spots if s.get("risk_class", "").upper() == risk_class.upper()]
+        if limit and limit > 0:
+            spots = spots[:limit]
+        return spots
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -154,15 +194,54 @@ def get_summary():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get('/alerts')
+def get_alerts():
+    try:
+        process_hotspots_and_summary()
+        critical_high = [h for h in _hotspots_cache if h["risk_class"] in ["CRITICAL", "HIGH"]]
+        return {
+            "active_alerts": critical_high[:50],
+            "recent_broadcasts": _broadcasts,
+            "total_active": len(critical_high),
+            "total_broadcasts": len(_broadcasts)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post('/alerts/broadcast', response_model=BroadcastResponse)
 def broadcast_alert(req: BroadcastRequest):
-    if req.risk_class not in ['CRITICAL', 'HIGH']:
-        raise HTTPException(status_code=400, detail='Only CRITICAL or HIGH risk classes can be broadcasted.')
+    valid_risk = req.risk_class.upper()
+    if valid_risk not in ['CRITICAL', 'HIGH', 'MODERATE', 'LOW']:
+        raise HTTPException(status_code=400, detail='Invalid risk class.')
+        
+    bcast_id = f'BCAST-{uuid.uuid4().hex[:8].upper()}'
+    now_ts = datetime.utcnow().isoformat() + 'Z'
+    
+    entry = {
+        "broadcast_id": bcast_id,
+        "state": req.state,
+        "latitude": req.latitude,
+        "longitude": req.longitude,
+        "risk_score": req.risk_score,
+        "risk_class": valid_risk,
+        "audience": req.audience or "All Authorities",
+        "severity": req.severity or ("Critical" if valid_risk == "CRITICAL" else "High"),
+        "message": req.message,
+        "timestamp": now_ts,
+        "status": "Delivered"
+    }
+    _broadcasts.insert(0, entry)
+    
     return BroadcastResponse(
         status='success',
-        message='Alert broadcast recorded',
-        broadcast_id=f'BCAST-{uuid.uuid4().hex[:8].upper()}',
-        timestamp=datetime.utcnow().isoformat() + 'Z'
+        message='Emergency alert broadcast recorded and dispatched to designated authorities.',
+        broadcast_id=bcast_id,
+        timestamp=now_ts,
+        state=req.state,
+        risk_score=req.risk_score,
+        risk_class=valid_risk,
+        audience=req.audience,
+        severity=req.severity
     )
 
 @router.get('/model-metrics')
@@ -173,3 +252,4 @@ def get_metrics():
             return json.load(f)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+

@@ -1,37 +1,94 @@
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Sidebar from './components/Sidebar';
-import Header from './components/Header';
-import Overview from './pages/Overview';
-import RiskMapPage from './pages/RiskMapPage';
-import AIAnalysis from './pages/AIAnalysis';
-import Alerts from './pages/Alerts';
-import Settings from './pages/Settings';
-import HistoricalAnalysis from './pages/HistoricalAnalysis';
-import Reports from './pages/Reports';
-import Team from './pages/Team';
+import { AppProvider } from './context/AppContext';
+import { AppLayout } from './components/layout/AppLayout';
 
-function App() {
+// Brand-New 2026 Pages
+import { LandingPage } from './pages/LandingPage';
+import { DashboardPage } from './pages/DashboardPage';
+import { MapExplorerPage } from './pages/MapExplorerPage';
+import { SimulationPage } from './pages/SimulationPage';
+import { BroadcastPage } from './pages/BroadcastPage';
+import { AnalyticsPage } from './pages/AnalyticsPage';
+import { ReportsPage } from './pages/ReportsPage';
+import { SettingsPage } from './pages/SettingsPage';
+
+export function App() {
   return (
     <Router>
-      <div className="flex h-screen overflow-hidden bg-sanket-bg">
-        <Sidebar />
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <Header />
-          <main className="flex-1 overflow-y-auto p-4 md:p-6">
-            <Routes>
-              <Route path="/" element={<Overview />} />
-              <Route path="/map" element={<RiskMapPage />} />
-              <Route path="/analysis" element={<AIAnalysis />} />
-              <Route path="/alerts" element={<Alerts />} />
-              <Route path="/historical" element={<HistoricalAnalysis />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/team" element={<Team />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </main>
-        </div>
-      </div>
+      <AppProvider>
+        <Routes>
+          {/* Public / Landing Showcase Page */}
+          <Route path="/" element={<LandingPage />} />
+
+          {/* Operational Command Center Pages (Inside AppLayout) */}
+          <Route
+            path="/dashboard"
+            element={
+              <AppLayout>
+                <DashboardPage />
+              </AppLayout>
+            }
+          />
+          <Route
+            path="/map"
+            element={
+              <AppLayout>
+                <MapExplorerPage />
+              </AppLayout>
+            }
+          />
+          <Route
+            path="/analysis"
+            element={
+              <AppLayout>
+                <SimulationPage />
+              </AppLayout>
+            }
+          />
+          <Route
+            path="/broadcast"
+            element={
+              <AppLayout>
+                <BroadcastPage />
+              </AppLayout>
+            }
+          />
+          <Route
+            path="/historical"
+            element={
+              <AppLayout>
+                <AnalyticsPage />
+              </AppLayout>
+            }
+          />
+          <Route
+            path="/reports"
+            element={
+              <AppLayout>
+                <ReportsPage />
+              </AppLayout>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <AppLayout>
+                <SettingsPage />
+              </AppLayout>
+            }
+          />
+
+          {/* Redirects */}
+          <Route path="/alerts" element={<Navigate to="/broadcast" replace />} />
+          <Route path="/team" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/operations" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/overview" element={<Navigate to="/dashboard" replace />} />
+
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AppProvider>
     </Router>
   );
 }

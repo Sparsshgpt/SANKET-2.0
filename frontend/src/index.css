@@ -3,25 +3,86 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color-scheme: light;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   body {
-    @apply bg-sanket-bg text-sanket-charcoal font-sans;
+    @apply bg-canvas text-stone-900 min-h-screen antialiased selection:bg-mountain-200 selection:text-mountain-900;
   }
 }
 
-/* Custom scrollbar for a cleaner dashboard look */
+/* Subtle Topographic Contour Background */
+.bg-topo-pattern {
+  background-color: #FAF8F5;
+  background-image: radial-gradient(#D6DFDD 0.75px, transparent 0.75px), radial-gradient(#DFC5A9 0.5px, #FAF8F5 0.5px);
+  background-size: 30px 30px;
+  background-position: 0 0, 15px 15px;
+}
+
+/* Subtle Mountain Mist Vignette */
+.bg-mist-vignette {
+  background: radial-gradient(circle at 50% 0%, rgba(228, 242, 236, 0.5) 0%, rgba(247, 245, 240, 1) 70%);
+}
+
+/* Mountain Topographic Lines SVG Overlay */
+.topographic-lines {
+  background-image: url("data:image/svg+xml,%3Csvg width='120' height='120' viewBox='0 0 120 120' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 20 C 30 10, 60 40, 120 20 M0 50 C 40 30, 80 70, 120 40 M0 80 C 20 70, 50 100, 120 70 M0 110 C 30 95, 70 125, 120 105' stroke='%23C59670' stroke-width='0.4' fill='none' opacity='0.18'/%3E%3C/svg%3E");
+}
+
+/* Custom Earth Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #F7F5F0;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-sanket-olive rounded-full;
+  background: #C2CBC8;
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-sanket-sage;
+  background: #8F9E9A;
+}
+
+/* Tactical Pulse for Critical Alerts */
+@keyframes beacon-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(190, 18, 60, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(190, 18, 60, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(190, 18, 60, 0);
+  }
+}
+
+.beacon-critical {
+  animation: beacon-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Print Styling for SITREP Bulletin */
+@media print {
+  body {
+    background: #FFFFFF !important;
+    color: #000000 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .page-break {
+    page-break-before: always;
+  }
 }

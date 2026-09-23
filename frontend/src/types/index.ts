@@ -1,3 +1,24 @@
+export type RiskClass = 'CRITICAL' | 'HIGH' | 'MODERATE' | 'LOW';
+
+export interface HotspotRecord {
+  id?: string;
+  date: string;
+  state: string;
+  district?: string;
+  latitude: number;
+  longitude: number;
+  elevation_m?: number;
+  slope_deg?: number;
+  soil_moisture?: number;
+  rainfall_24h_mm?: number;
+  risk_score: number;
+  risk_class: RiskClass;
+  landslide_occurrence: number;
+  displacement_mm?: number;
+  distance_to_road_km?: number;
+  distance_to_settlement_km?: number;
+}
+
 export interface PredictionInput {
   latitude: number;
   longitude: number;
@@ -21,21 +42,22 @@ export interface PredictionInput {
   infrastructure_exposure_index: number;
 }
 
+export interface FactorSensitivity {
+  key: keyof PredictionInput;
+  label: string;
+  category: 'hydro' | 'terrain' | 'soil' | 'exposure';
+  impactPercent: number; // 0 - 100
+  status: 'safe' | 'warning' | 'critical';
+  displayValue: string;
+}
+
 export interface PredictionResult {
   prediction: number;
   landslide_probability: number;
   risk_score: number;
-  risk_class: 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL';
-}
-
-export interface HotspotRecord {
-  date: string;
-  state: string;
-  latitude: number;
-  longitude: number;
-  risk_score: number;
-  risk_class: 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL';
-  landslide_occurrence: number;
+  risk_class: RiskClass;
+  contributing_factors?: FactorSensitivity[];
+  action_protocols?: string[];
 }
 
 export interface SummaryStats {
@@ -46,21 +68,35 @@ export interface SummaryStats {
   low_risk_zones: number;
   landslide_events: number;
   states_monitored: number;
+  last_updated?: string;
 }
 
-export interface HealthCheck {
-  status: string;
-  service: string;
-  model_loaded: boolean;
+export interface BroadcastAlert {
+  broadcast_id: string;
+  state: string;
+  district?: string;
+  latitude?: number;
+  longitude?: number;
+  risk_score: number;
+  risk_class: RiskClass;
+  audience: string;
+  severity: string;
+  message: string;
+  timestamp: string;
+  status: 'Delivered' | 'Transmitting' | 'Queued';
+  advisory_code?: string;
 }
 
 export interface BroadcastRequest {
   state: string;
+  district?: string;
   latitude: number;
   longitude: number;
   risk_score: number;
   risk_class: string;
   message: string;
+  audience?: string;
+  severity?: string;
 }
 
 export interface BroadcastResponse {
@@ -68,4 +104,49 @@ export interface BroadcastResponse {
   message: string;
   broadcast_id: string;
   timestamp: string;
+  state?: string;
+  risk_score?: number;
+  risk_class?: string;
+  audience?: string;
+  severity?: string;
+}
+
+export interface AlertsResponse {
+  active_alerts: HotspotRecord[];
+  recent_broadcasts: BroadcastAlert[];
+  total_active: number;
+  total_broadcasts: number;
+}
+
+export interface HealthCheck {
+  status: string;
+  service: string;
+  model_loaded: boolean;
+  active_datasource?: string;
+}
+
+export interface TeamMember {
+  id: string;
+  name: string;
+  role: string;
+  department: string;
+  location: string;
+  status: 'Active' | 'Field Deployed' | 'Standby';
+  email: string;
+  phone: string;
+  avatar?: string;
+  assignedDistricts?: string[];
+}
+
+export interface ScenarioPreset {
+  id: string;
+  label: string;
+  location: string;
+  state: string;
+  elevation: number;
+  slopeDeg: number;
+  soilType: string;
+  description: string;
+  threatLevel: RiskClass;
+  features: PredictionInput;
 }
