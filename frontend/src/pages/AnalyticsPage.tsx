@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
 import { MOCK_HISTORICAL_DATA, MOCK_STATE_STATISTICS } from '../services/mockData';
+import {
+  getSeasonalityData,
+  calculatePeakRiskMetrics,
+  MonthlySeasonalityRecord,
+} from '../data/seasonalityData';
 import {
   History,
   TrendingUp,
@@ -11,6 +16,7 @@ import {
   Calendar,
   Layers,
   Filter,
+  Info,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -28,21 +34,6 @@ import {
   Cell,
 } from 'recharts';
 
-const MONTHLY_SEASONALITY = [
-  { month: 'Jan', events: 2, rainfall: 45 },
-  { month: 'Feb', events: 3, rainfall: 60 },
-  { month: 'Mar', events: 8, rainfall: 110 },
-  { month: 'Apr', events: 14, rainfall: 190 },
-  { month: 'May', events: 42, rainfall: 380 },
-  { month: 'Jun', events: 118, rainfall: 740 },
-  { month: 'Jul', events: 142, rainfall: 860 },
-  { month: 'Aug', events: 125, rainfall: 780 },
-  { month: 'Sep', events: 68, rainfall: 490 },
-  { month: 'Oct', events: 22, rainfall: 180 },
-  { month: 'Nov', events: 5, rainfall: 50 },
-  { month: 'Dec', events: 1, rainfall: 25 },
-];
-
 const FAILURE_MECHANISMS = [
   { name: 'Pore-Water Saturation Debris Flow', value: 46, color: '#BE123C' },
   { name: 'Escarpment Toe-Cut Erosion', value: 28, color: '#C2410C' },
@@ -51,7 +42,18 @@ const FAILURE_MECHANISMS = [
 ];
 
 export const AnalyticsPage: React.FC = () => {
-  const [selectedYear, setSelectedYear] = useState<string>('ALL');
+  // Filter period state: '2026' (Current Live YTD), 'ALL' (2018-2025 Baseline), or historical year
+  const [selectedYear, setSelectedYear] = useState<string>('2026');
+
+  // Dynamically resolve monthly seasonality series (auto-detects system date for future months)
+  const seasonalityResult = useMemo(() => {
+    return getSeasonalityData(selectedYear);
+  }, [selectedYear]);
+
+  // Dynamically calculate peak risk months & percentage strictly from actual available data
+  const peakMetrics = useMemo(() => {
+    return calculatePeakRiskMetrics(seasonalityResult.data);
+  }, [seasonalityResult.data]);
 
   return (
     <div className="space-y-6">
@@ -81,12 +83,13 @@ export const AnalyticsPage: React.FC = () => {
           <select
             value={selectedYear}
             onChange={(e) => setSelectedYear(e.target.value)}
-            className="bg-stone-50 border border-stone-200 rounded-lg px-3 py-1.5 font-bold text-stone-800 focus:outline-none focus:ring-2 focus:ring-mountain-600 text-xs"
+            className="bg-stone-50 border border-stone-200 rounded-lg px-3 py-1.5 font-bold text-stone-800 focus:outline-none focus:ring-2 focus:ring-mountain-600 text-xs shadow-xs"
           >
-            <option value="ALL">All Recorded Years (2018–2025)</option>
-            <option value="2025">2025 Season</option>
-            <option value="2024">2024 Season</option>
-            <option value="2023">2023 Season</option>
+            <option value="2026">2026 Season (Current Live YTD)</option>
+            <option value="ALL">Historical Baseline (2018–2025 Archive)</option>
+            <option value="2025">2025 Season (Historical Archive)</option>
+            <option value="2024">2024 Season (Historical Archive)</option>
+            <option value="2023">2023 Season (Historical Archive)</option>
           </select>
         </div>
       </div>
@@ -97,8 +100,8 @@ export const AnalyticsPage: React.FC = () => {
         <div className="lg:col-span-7">
           <Card
             topoPattern
-            title="7-Year Antecedent Precipitation vs Landslide Triggers"
-            subtitle="Evaluating correlation between annual rainfall and recorded slope failures"
+            title="Multi-Year Antecedent Precipitation vs Landslide Triggers"
+            subtitle="Evaluating correlation between annual rainfall and recorded slope failures (2018–2025)"
             bodyClassName="p-4"
           >
             <div className="h-[320px] w-full text-xs">
@@ -146,22 +149,79 @@ export const AnalyticsPage: React.FC = () => {
         {/* Monthly Monsoon Seasonality Curve (5 cols) */}
         <div className="lg:col-span-5">
           <Card
-            title="Monthly Monsoon Risk Seasonality"
-            subtitle="Annual distribution showing June–August peak critical window"
+            title={
+              seasonalityResult.isHistorical
+                ? "Historical Monthly Monsoon Risk Seasonality"
+                : "Monthly Monsoon Risk Seasonality (Current Year 2026 YTD)"
+            }
+            subtitle={
+              seasonalityResult.isHistorical
+                ? `Seasonal distribution across complete historical baseline (${seasonalityResult.periodLabel})`
+                : `Recorded incidents through ${seasonalityResult.latestRecordedMonth} • Future months unrecorded`
+            }
+            headerAction={
+              <span
+                className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
+                  seasonalityResult.isHistorical
+                    ? 'bg-stone-100 text-stone-700 border-stone-300'
+                    : 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                }`}
+              >
+                {seasonalityResult.isHistorical ? 'HISTORICAL ARCHIVE' : 'CURRENT YEAR (LIVE YTD)'}
+              </span>
+            }
             bodyClassName="p-4"
           >
             <div className="h-[320px] w-full text-xs">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={MONTHLY_SEASONALITY}>
+                <BarChart data={seasonalityResult.data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E1E6E4" vertical={false} />
-                  <XAxis dataKey="month" stroke="#6D7C78" tick={{ fontSize: 11 }} />
+                  <XAxis
+                    dataKey="month"
+                    stroke="#6D7C78"
+                    tick={{ fontSize: 11 }}
+                    tickFormatter={(value, idx) => {
+                      const item = seasonalityResult.data[idx];
+                      return item?.isFuture ? `${value}*` : value;
+                    }}
+                  />
                   <YAxis stroke="#6D7C78" tick={{ fontSize: 11 }} />
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#FFFFFF',
-                      borderRadius: '0.75rem',
-                      border: '1px solid #D6DFDD',
-                      fontSize: '11px',
+                    content={({ active, payload, label }) => {
+                      if (active && payload && payload.length) {
+                        const record = payload[0].payload as MonthlySeasonalityRecord;
+                        if (record.isFuture || record.events === null || record.events === undefined) {
+                          return (
+                            <div className="bg-stone-900/95 text-stone-100 p-2.5 rounded-xl border border-stone-700 text-xs shadow-lg backdrop-blur-md">
+                              <p className="font-bold text-stone-200">{label} {selectedYear === 'ALL' ? '(Historical)' : selectedYear}</p>
+                              <p className="text-amber-400 text-[11px] mt-1 flex items-center gap-1 font-medium">
+                                <span>⚠️ Future Month — No data recorded</span>
+                              </p>
+                              <p className="text-stone-400 text-[10px] mt-0.5">Telemetry pending until month concludes.</p>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div className="bg-white/95 text-stone-900 p-2.5 rounded-xl border border-stone-200 text-xs shadow-lg backdrop-blur-md">
+                            <p className="font-bold text-mountain-900 mb-1">
+                              {label} {selectedYear === 'ALL' ? '(Historical Average)' : `${selectedYear} Season`}
+                            </p>
+                            <div className="space-y-1 text-stone-600">
+                              <p className="flex justify-between gap-4">
+                                <span className="text-stone-500">Recorded Incidents:</span>
+                                <span className="font-mono font-bold text-rose-700">{record.events} events</span>
+                              </p>
+                              {record.rainfall !== null && record.rainfall !== undefined && (
+                                <p className="flex justify-between gap-4">
+                                  <span className="text-stone-500">Avg 24h Precipitation:</span>
+                                  <span className="font-mono font-bold text-mountain-800">{record.rainfall} mm</span>
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
                     }}
                   />
                   <Bar
@@ -173,9 +233,17 @@ export const AnalyticsPage: React.FC = () => {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-            <div className="mt-2 pt-2 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-500">
-              <span>Peak Risk Months: June & July (68% of incidents)</span>
-              <span className="font-bold text-rose-700">Highest Vulnerability</span>
+
+            {/* Note if viewing current year with future months */}
+            {!seasonalityResult.isHistorical && (
+              <div className="text-[10px] text-stone-400 italic mt-1 flex items-center gap-1">
+                <span>* Asterisk indicates upcoming/future months without telemetry.</span>
+              </div>
+            )}
+
+            <div className="mt-2 pt-2 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-500 flex-wrap gap-2">
+              <span className="font-medium text-stone-700">{peakMetrics.peakMonthsText}</span>
+              <span className="font-bold text-rose-700">Highest Vulnerability Window</span>
             </div>
           </Card>
         </div>
