@@ -1,16 +1,25 @@
 import { RiskClass, PredictionInput, FactorSensitivity } from '../types';
 
+export const RISK_COLORS = {
+  CRITICAL: '#DC2626', // Red
+  HIGH: '#EA580C',     // Orange
+  MODERATE: '#D97706', // Amber / Gold Yellow
+  LOW: '#16A34A',      // Green
+} as const;
+
+export type RiskLevel = keyof typeof RISK_COLORS;
+
 export function getRiskColor(riskClass?: string): string {
   switch (riskClass?.toUpperCase()) {
     case 'CRITICAL':
-      return '#BE123C'; // Mineral Crimson
+      return RISK_COLORS.CRITICAL;
     case 'HIGH':
-      return '#C2410C'; // Terracotta Orange
+      return RISK_COLORS.HIGH;
     case 'MODERATE':
-      return '#B45309'; // Ochre Amber
+      return RISK_COLORS.MODERATE;
     case 'LOW':
     default:
-      return '#15803D'; // Alpine Pine Green
+      return RISK_COLORS.LOW;
   }
 }
 

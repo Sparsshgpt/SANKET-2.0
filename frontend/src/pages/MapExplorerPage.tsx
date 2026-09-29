@@ -121,7 +121,7 @@ export const MapExplorerPage: React.FC = () => {
           />
           <input
             type="text"
-            placeholder="Search district, corridor, or coordinates (e.g. Wayanad, Joshimath, 25.2)..."
+            placeholder="Search district or coordinates..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-stone-800 focus:outline-none focus:ring-2 focus:ring-mountain-600 focus:bg-white transition-all text-xs"

@@ -1,22 +1,19 @@
 import React, { useMemo, useEffect, useState, useRef } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Popup, GeoJSON, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip, GeoJSON, useMap } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
+import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { HotspotRecord } from '../../types';
-import { getRiskColor, formatCoordinates, formatElevation, formatSlope } from '../../utils/formatters';
+import { getRiskColor, formatCoordinates, formatElevation, formatSlope, RISK_COLORS, RiskLevel } from '../../utils/formatters';
 import { isWithinIndia, INDIA_MAP_BOUNDS, INDIA_REGIONS } from '../../utils/geo';
 import indiaBoundary from '../../data/india-boundary.json';
 import {
   Mountain,
   Droplets,
   MapPin,
-  AlertTriangle,
   ArrowRight,
-  ShieldCheck,
-  Compass,
   Layers,
   Globe,
-  Check,
   Info,
 } from 'lucide-react';
 
@@ -34,25 +31,86 @@ interface ModernRiskMapProps {
   totalHotspotsCount?: number;
 }
 
-// Controller to smoothly pan/zoom map when user changes region
+// Custom Cluster Icon Generator: Sized by count, colored by worst hazard inside
+const createCustomClusterIcon = (cluster: any) => {
+  const markers = cluster.getAllChildMarkers();
+  let worstSeverity: RiskLevel = 'LOW';
+
+  for (const marker of markers) {
+    const risk = ((marker.options as any)?.riskClass || (marker.options as any)?.alt) as RiskLevel;
+    if (risk === 'CRITICAL') {
+      worstSeverity = 'CRITICAL';
+      break;
+    } else if (risk === 'HIGH') {
+      worstSeverity = 'HIGH';
+    } else if (risk === 'MODERATE' && worstSeverity !== 'HIGH') {
+      worstSeverity = 'MODERATE';
+    }
+  }
+
+  const count = cluster.getChildCount();
+  const color = RISK_COLORS[worstSeverity] || RISK_COLORS.LOW;
+
+  let size = 30;
+  if (count >= 20) size = 42;
+  else if (count >= 10) size = 36;
+  else if (count >= 5) size = 32;
+
+  return L.divIcon({
+    html: `<div style="
+      background-color: ${color};
+      width: ${size}px;
+      height: ${size}px;
+      border-radius: 50%;
+      border: 2.5px solid rgba(255, 255, 255, 0.95);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+      color: #ffffff;
+      font-weight: 700;
+      font-size: ${size <= 32 ? 11 : 12}px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+    "><span>${count}</span></div>`,
+    className: 'sanket-cluster-icon',
+    iconSize: L.point(size, size, true),
+  });
+};
+
+// Controller to smoothly pan/zoom map and fit stations on initial load
 const MapViewController: React.FC<{
   center: [number, number];
   zoom: number;
   selectedSpot?: HotspotRecord | null;
-}> = ({ center, zoom, selectedSpot }) => {
+  displaySpots: HotspotRecord[];
+}> = ({ center, zoom, selectedSpot, displaySpots }) => {
   const map = useMap();
+  const initialFitDone = useRef(false);
 
   useEffect(() => {
     if (selectedSpot) {
       map.flyTo([selectedSpot.latitude, selectedSpot.longitude], 11, {
         duration: 1.2,
       });
+    } else if (!initialFitDone.current && displaySpots.length > 0) {
+      initialFitDone.current = true;
+      const validSpots = displaySpots.filter((s) => s.latitude && s.longitude);
+      if (validSpots.length > 0) {
+        const bounds = L.latLngBounds(
+          validSpots.map((s) => [s.latitude, s.longitude] as [number, number])
+        );
+        map.fitBounds(bounds, {
+          padding: [50, 50],
+          maxZoom: 6,
+          animate: true,
+        });
+      }
     } else {
       map.flyTo(center, zoom, {
         duration: 1.0,
       });
     }
-  }, [center, zoom, selectedSpot, map]);
+  }, [center, zoom, selectedSpot, map, displaySpots]);
 
   return null;
 };
@@ -129,16 +187,17 @@ export const ModernRiskMap: React.FC<ModernRiskMapProps> = ({
       if (!isWithinIndia(spot.latitude, spot.longitude)) return false;
       if (currentRegion !== 'all_india') {
         const allowedStates = INDIA_REGIONS[currentRegion]?.states || [];
-        return allowedStates.some(s => s.toLowerCase() === spot.state.toLowerCase());
+        return allowedStates.some((s) => s.toLowerCase() === spot.state.toLowerCase());
       }
       return true;
     });
   }, [hotspots, currentRegion]);
 
+  // Clean, muted English basemaps (CartoDB Positron / Voyager) & high-res satellite
   const tileUrls = {
-    topo: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    topo: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
     satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    street: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    street: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
   };
 
   return (
@@ -146,10 +205,10 @@ export const ModernRiskMap: React.FC<ModernRiskMapProps> = ({
       <MapContainer
         center={currentCenter}
         zoom={currentZoom}
-        minZoom={4}
+        minZoom={4.2}
         maxZoom={18}
         maxBounds={INDIA_MAP_BOUNDS}
-        maxBoundsViscosity={0.9}
+        maxBoundsViscosity={0.95}
         scrollWheelZoom={interactive}
         dragging={interactive}
         zoomControl={false}
@@ -160,33 +219,40 @@ export const ModernRiskMap: React.FC<ModernRiskMapProps> = ({
           center={currentCenter}
           zoom={currentZoom}
           selectedSpot={selectedHotspot}
+          displaySpots={displaySpots}
         />
 
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          attribution={
+            baseTile === 'satellite'
+              ? '&copy; Esri, Maxar, Earthstar Geographics'
+              : '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          }
           url={tileUrls[baseTile]}
         />
 
-        {/* Survey of India Official External Boundary (Full Jammu & Kashmir + Ladakh + Arunachal Pradesh) */}
+        {/* Survey of India Official External Boundary (Thinned to ~2px with softer color) */}
         {showOfficialBoundary && (
           <GeoJSON
             key={`soi-boundary-${currentRegion}`}
             data={indiaBoundary as any}
             style={() => ({
-              color: '#14382E',
-              weight: 2.8,
-              opacity: 0.95,
-              fillColor: '#204C3E',
-              fillOpacity: 0.04,
+              color: '#335C4D',
+              weight: 2.0,
+              opacity: 0.85,
+              fillColor: '#335C4D',
+              fillOpacity: 0.02,
             })}
           />
         )}
 
         <MarkerClusterGroup
           chunkedLoading
-          maxClusterRadius={45}
+          maxClusterRadius={40}
           showCoverageOnHover={false}
           spiderfyOnMaxZoom={true}
+          zoomToBoundsOnClick={true}
+          iconCreateFunction={createCustomClusterIcon}
         >
           {displaySpots.map((spot, idx) => {
             const color = getRiskColor(spot.risk_class);
@@ -211,13 +277,27 @@ export const ModernRiskMap: React.FC<ModernRiskMapProps> = ({
                 eventHandlers={{
                   click: () => onHotspotSelect?.(spot),
                 }}
+                {...({ riskClass: spot.risk_class } as any)}
                 pathOptions={{
                   color: isSelected ? '#0A1813' : color,
                   fillColor: color,
                   fillOpacity: isSelected ? 1 : 0.85,
-                  weight: isSelected ? 3 : 1.5,
+                  weight: isSelected ? 3.5 : 1.5,
                 }}
               >
+                {/* Station Hover Tooltip: Name + Hazard Score */}
+                <Tooltip direction="top" offset={[0, -radius]} opacity={0.98}>
+                  <div className="text-[11px] font-sans font-semibold py-0.5 px-1 flex items-center gap-1.5 whitespace-nowrap">
+                    <span className="text-stone-900">{spot.district || spot.state}</span>
+                    <span
+                      className="font-mono font-bold px-1.5 py-0.5 rounded text-[10px] text-white"
+                      style={{ backgroundColor: color }}
+                    >
+                      {spot.risk_score.toFixed(1)}
+                    </span>
+                  </div>
+                </Tooltip>
+
                 <Popup>
                   <div className="p-1 min-w-[220px] text-stone-900 font-sans text-xs">
                     {/* Header */}
@@ -282,7 +362,7 @@ export const ModernRiskMap: React.FC<ModernRiskMapProps> = ({
                     <div className="mt-2.5 pt-2 border-t border-stone-200">
                       <button
                         onClick={() => onHotspotSelect?.(spot)}
-                        className="w-full py-1 px-2 rounded bg-mountain-800 hover:bg-mountain-700 text-white font-semibold flex items-center justify-center gap-1.5 text-[11px] transition-colors"
+                        className="w-full py-1 px-2 rounded bg-mountain-800 hover:bg-mountain-700 text-white font-semibold flex items-center justify-center gap-1.5 text-[11px] transition-colors cursor-pointer"
                       >
                         <span>Open Detailed Inspector</span>
                         <ArrowRight size={11} />
@@ -297,50 +377,50 @@ export const ModernRiskMap: React.FC<ModernRiskMapProps> = ({
       </MapContainer>
 
       {/* Top Map Controls Header Layer */}
-      <div className="absolute top-3 inset-x-3 z-[400] flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 pointer-events-none">
-        {/* Left Floating Controls Stack: Mountain Belts & Station Count */}
-        <div className="flex flex-col items-start gap-2.5 max-w-full sm:max-w-md pointer-events-none">
-          {/* 1. Mountain Belts Geographic Filter Card */}
-          <div className="pointer-events-auto bg-white/95 backdrop-blur-md p-2.5 rounded-xl border border-stone-200/90 shadow-soft-earth flex flex-col gap-2 w-full sm:w-auto">
-            <div className="px-1 font-bold text-stone-500 tracking-wider text-[10px] flex items-center gap-1.5 shrink-0 uppercase select-none">
-              <Mountain size={12} className="text-mountain-700 shrink-0" />
-              <span>MOUNTAIN BELTS</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5 bg-stone-100/90 p-1 rounded-lg">
-              {Object.values(INDIA_REGIONS).map((reg) => {
-                const isActive = currentRegion === reg.id;
-                return (
-                  <button
-                    key={reg.id}
-                    type="button"
-                    onClick={() => handleRegionSwitch(reg.id)}
-                    aria-pressed={isActive}
-                    className={`px-2.5 py-1 rounded-md text-[11px] transition-all duration-150 whitespace-nowrap cursor-pointer ${
-                      isActive
-                        ? 'bg-mountain-800 text-white font-semibold shadow-xs'
-                        : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60 font-medium'
-                    }`}
-                  >
-                    {getRegionLabel(reg.id, reg.name)}
-                  </button>
-                );
-              })}
-            </div>
+      <div className="absolute top-3 inset-x-3 z-[400] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pointer-events-none">
+        {/* Left: Compact Merged Toolbar (Mountain Belts + Station Count in Single Low-Profile Row) */}
+        <div className="pointer-events-auto bg-white/95 backdrop-blur-md px-2.5 py-1.5 rounded-xl border border-stone-200/90 shadow-soft-earth flex items-center gap-2 max-w-full overflow-x-auto text-xs shrink-0">
+          <div className="px-1 font-bold text-stone-500 tracking-wider text-[10px] flex items-center gap-1 shrink-0 uppercase select-none">
+            <Mountain size={12} className="text-mountain-700 shrink-0" />
+            <span className="hidden xs:inline">BELTS</span>
           </div>
 
-          {/* 2. Station Count Badge (Below Mountain Belts with Clear Gap) */}
+          <div className="flex items-center gap-0.5 bg-stone-100/90 p-0.5 rounded-lg shrink-0">
+            {Object.values(INDIA_REGIONS).map((reg) => {
+              const isActive = currentRegion === reg.id;
+              return (
+                <button
+                  key={reg.id}
+                  type="button"
+                  onClick={() => handleRegionSwitch(reg.id)}
+                  aria-pressed={isActive}
+                  className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all duration-150 whitespace-nowrap cursor-pointer ${
+                    isActive
+                      ? 'bg-mountain-800 text-white font-semibold shadow-xs'
+                      : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
+                  }`}
+                >
+                  {getRegionLabel(reg.id, reg.name)}
+                </button>
+              );
+            })}
+          </div>
+
           {showStationCount && (
-            <div className="pointer-events-auto bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-stone-200/90 shadow-soft-earth text-xs font-semibold text-stone-700 flex items-center gap-2 select-none">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-              <span>
-                Showing {displaySpots.length} of {totalHotspotsCount ?? hotspots.length} Indian Mountain Stations
-              </span>
-            </div>
+            <>
+              <div className="w-px h-3.5 bg-stone-200 shrink-0" />
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-stone-700 shrink-0 select-none whitespace-nowrap">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                <span>
+                  Showing {displaySpots.length} of {totalHotspotsCount ?? hotspots.length} Stations
+                </span>
+              </div>
+            </>
           )}
         </div>
 
-        {/* Right Floating Controls Stack: Survey of India Boundary Status & Map Style Toggle */}
-        <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2 pointer-events-none shrink-0 self-start sm:self-auto">
+        {/* Right Floating Controls: Survey of India Boundary Status & Map Style Toggle */}
+        <div className="flex items-center justify-start sm:justify-end gap-2 pointer-events-none shrink-0 self-start sm:self-auto">
           {/* Survey of India Boundary Status & Info */}
           <div ref={boundaryInfoRef} className="pointer-events-auto relative flex items-center">
             <div className="bg-white/95 backdrop-blur-md px-2.5 py-1.5 rounded-xl border border-stone-200/90 shadow-soft-earth text-[11px] font-medium text-stone-700 flex items-center gap-1.5 select-none">
@@ -415,10 +495,10 @@ export const ModernRiskMap: React.FC<ModernRiskMapProps> = ({
         </p>
         <div className="space-y-1">
           {[
-            { label: 'Critical (75–100)', color: '#BE123C' },
-            { label: 'High (55–74.9)', color: '#C2410C' },
-            { label: 'Moderate (35–54.9)', color: '#B45309' },
-            { label: 'Low (0–34.9)', color: '#15803D' },
+            { label: 'Critical (75–100)', color: RISK_COLORS.CRITICAL },
+            { label: 'High (55–74.9)', color: RISK_COLORS.HIGH },
+            { label: 'Moderate (35–54.9)', color: RISK_COLORS.MODERATE },
+            { label: 'Low (0–34.9)', color: RISK_COLORS.LOW },
           ].map((item) => (
             <div key={item.label} className="flex items-center gap-2">
               <span
@@ -435,3 +515,4 @@ export const ModernRiskMap: React.FC<ModernRiskMapProps> = ({
     </div>
   );
 };
+
