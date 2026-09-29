@@ -100,8 +100,9 @@ const MapViewController: React.FC<{
           validSpots.map((s) => [s.latitude, s.longitude] as [number, number])
         );
         map.fitBounds(bounds, {
-          padding: [50, 50],
-          maxZoom: 6,
+          paddingTopLeft: [20, 60],
+          paddingBottomRight: [20, 20],
+          maxZoom: 5.5,
           animate: true,
         });
       }
@@ -193,11 +194,11 @@ export const ModernRiskMap: React.FC<ModernRiskMapProps> = ({
     });
   }, [hotspots, currentRegion]);
 
-  // Clean, muted English basemaps (CartoDB Positron / Voyager) & high-res satellite
+  // Clean, watermark-free high-precision GIS basemaps
   const tileUrls = {
-    topo: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    topo: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
     satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    street: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    street: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
   };
 
   return (
@@ -226,7 +227,7 @@ export const ModernRiskMap: React.FC<ModernRiskMapProps> = ({
           attribution={
             baseTile === 'satellite'
               ? '&copy; Esri, Maxar, Earthstar Geographics'
-              : '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              : '&copy; Esri, USGS, NOAA &copy; OpenStreetMap'
           }
           url={tileUrls[baseTile]}
         />
@@ -377,14 +378,9 @@ export const ModernRiskMap: React.FC<ModernRiskMapProps> = ({
       </MapContainer>
 
       {/* Top Map Controls Header Layer */}
-      <div className="absolute top-3 inset-x-3 z-[400] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pointer-events-none">
-        {/* Left: Compact Merged Toolbar (Mountain Belts + Station Count in Single Low-Profile Row) */}
-        <div className="pointer-events-auto bg-white/95 backdrop-blur-md px-2.5 py-1.5 rounded-xl border border-stone-200/90 shadow-soft-earth flex items-center gap-2 max-w-full overflow-x-auto text-xs shrink-0">
-          <div className="px-1 font-bold text-stone-500 tracking-wider text-[10px] flex items-center gap-1 shrink-0 uppercase select-none">
-            <Mountain size={12} className="text-mountain-700 shrink-0" />
-            <span className="hidden xs:inline">BELTS</span>
-          </div>
-
+      <div className="absolute top-2.5 inset-x-2.5 z-[400] flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+        {/* Left: Compact Merged Toolbar (Mountain Belts + Station Count) */}
+        <div className="pointer-events-auto bg-white/95 backdrop-blur-md px-2 py-1 rounded-xl border border-stone-200/90 shadow-soft-earth flex items-center gap-1.5 max-w-full overflow-x-auto text-xs shrink-0">
           <div className="flex items-center gap-0.5 bg-stone-100/90 p-0.5 rounded-lg shrink-0">
             {Object.values(INDIA_REGIONS).map((reg) => {
               const isActive = currentRegion === reg.id;
@@ -409,10 +405,10 @@ export const ModernRiskMap: React.FC<ModernRiskMapProps> = ({
           {showStationCount && (
             <>
               <div className="w-px h-3.5 bg-stone-200 shrink-0" />
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-stone-700 shrink-0 select-none whitespace-nowrap">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-stone-700 shrink-0 select-none whitespace-nowrap pr-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                 <span>
-                  Showing {displaySpots.length} of {totalHotspotsCount ?? hotspots.length} Stations
+                  {displaySpots.length} of {totalHotspotsCount ?? hotspots.length} Stations
                 </span>
               </div>
             </>
@@ -420,66 +416,66 @@ export const ModernRiskMap: React.FC<ModernRiskMapProps> = ({
         </div>
 
         {/* Right Floating Controls: Survey of India Boundary Status & Map Style Toggle */}
-        <div className="flex items-center justify-start sm:justify-end gap-2 pointer-events-none shrink-0 self-start sm:self-auto">
+        <div className="flex items-center justify-end gap-1.5 pointer-events-none shrink-0">
           {/* Survey of India Boundary Status & Info */}
           <div ref={boundaryInfoRef} className="pointer-events-auto relative flex items-center">
-            <div className="bg-white/95 backdrop-blur-md px-2.5 py-1.5 rounded-xl border border-stone-200/90 shadow-soft-earth text-[11px] font-medium text-stone-700 flex items-center gap-1.5 select-none">
-              <span className="w-2 h-2 rounded-full bg-emerald-600 ring-2 ring-emerald-100 shrink-0" />
-              <span className="font-semibold text-stone-800 whitespace-nowrap">Survey of India Boundary</span>
+            <div className="bg-white/95 backdrop-blur-md px-2 py-1 rounded-xl border border-stone-200/90 shadow-soft-earth text-[11px] font-medium text-stone-700 flex items-center gap-1 select-none">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 ring-2 ring-emerald-100 shrink-0" />
+              <span className="font-semibold text-stone-800 whitespace-nowrap hidden sm:inline">SOI Boundary</span>
               <button
                 type="button"
                 onClick={() => setShowBoundaryInfo((prev) => !prev)}
                 onMouseEnter={() => setShowBoundaryInfo(true)}
                 onMouseLeave={() => setShowBoundaryInfo(false)}
-                className="text-stone-400 hover:text-stone-700 transition-colors p-0.5 rounded-full hover:bg-stone-100 focus:outline-none flex items-center justify-center ml-0.5 cursor-pointer"
+                className="text-stone-400 hover:text-stone-700 p-0.5 rounded-full hover:bg-stone-100 focus:outline-none flex items-center justify-center cursor-pointer"
                 aria-label="Boundary Information"
                 title="Boundary details"
               >
-                <Info size={13} className="shrink-0" />
+                <Info size={12} className="shrink-0" />
               </button>
             </div>
 
             {/* Info Popover / Tooltip */}
             {showBoundaryInfo && (
               <div
-                className="absolute top-full mt-2 right-0 sm:left-1/2 sm:-translate-x-1/2 w-64 sm:w-72 p-2.5 bg-stone-900/95 text-stone-100 text-[11px] font-normal rounded-xl shadow-xl border border-stone-700/80 backdrop-blur-md z-[500] text-center leading-relaxed pointer-events-auto animate-in fade-in zoom-in-95 duration-150"
+                className="absolute top-full mt-2 right-0 w-64 sm:w-72 p-2.5 bg-stone-900/95 text-stone-100 text-[11px] font-normal rounded-xl shadow-xl border border-stone-700/80 backdrop-blur-md z-[500] text-center leading-relaxed pointer-events-auto animate-in fade-in zoom-in-95 duration-150"
                 role="tooltip"
                 onMouseEnter={() => setShowBoundaryInfo(true)}
                 onMouseLeave={() => setShowBoundaryInfo(false)}
               >
                 Boundary visualization based on the Survey of India map/boundary dataset used by SANKET.
-                <div className="absolute -top-1 right-6 sm:left-1/2 sm:-translate-x-1/2 sm:right-auto w-2 h-2 bg-stone-900/95 rotate-45 border-l border-t border-stone-700/80" />
+                <div className="absolute -top-1 right-4 w-2 h-2 bg-stone-900/95 rotate-45 border-l border-t border-stone-700/80" />
               </div>
             )}
           </div>
 
           {/* Map Layer Segmented Toggle: [ Topographic | Satellite ] */}
-          <div className="pointer-events-auto bg-white/95 backdrop-blur-md p-1 rounded-xl border border-stone-200/90 shadow-soft-earth flex items-center text-[11px]">
+          <div className="pointer-events-auto bg-white/95 backdrop-blur-md p-0.5 rounded-xl border border-stone-200/90 shadow-soft-earth flex items-center text-[11px]">
             <div className="flex items-center gap-0.5 bg-stone-100/90 p-0.5 rounded-lg">
               <button
                 type="button"
                 onClick={() => setBaseTile('topo')}
                 aria-pressed={baseTile === 'topo'}
-                className={`px-2.5 py-1 rounded-md text-[11px] transition-all duration-150 whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                className={`px-2 py-0.5 rounded-md text-[11px] transition-all duration-150 whitespace-nowrap flex items-center gap-1 cursor-pointer ${
                   baseTile === 'topo'
                     ? 'bg-mountain-800 text-white font-semibold shadow-xs'
                     : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60 font-medium'
                 }`}
               >
-                <Layers size={12} className={baseTile === 'topo' ? 'text-mountain-200' : 'text-stone-500'} />
+                <Layers size={11} className={baseTile === 'topo' ? 'text-mountain-200' : 'text-stone-500'} />
                 <span>Topographic</span>
               </button>
               <button
                 type="button"
                 onClick={() => setBaseTile('satellite')}
                 aria-pressed={baseTile === 'satellite'}
-                className={`px-2.5 py-1 rounded-md text-[11px] transition-all duration-150 whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                className={`px-2 py-0.5 rounded-md text-[11px] transition-all duration-150 whitespace-nowrap flex items-center gap-1 cursor-pointer ${
                   baseTile === 'satellite'
                     ? 'bg-mountain-800 text-white font-semibold shadow-xs'
                     : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60 font-medium'
                 }`}
               >
-                <Globe size={12} className={baseTile === 'satellite' ? 'text-mountain-200' : 'text-stone-500'} />
+                <Globe size={11} className={baseTile === 'satellite' ? 'text-mountain-200' : 'text-stone-500'} />
                 <span>Satellite</span>
               </button>
             </div>
