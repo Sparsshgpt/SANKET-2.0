@@ -152,22 +152,22 @@ export const AnalyticsPage: React.FC = () => {
             title={
               seasonalityResult.isHistorical
                 ? "Historical Monthly Monsoon Risk Seasonality"
-                : "Monthly Monsoon Risk Seasonality (Current Year 2026 YTD)"
+                : "Monthly Monsoon Risk Seasonality"
             }
             subtitle={
               seasonalityResult.isHistorical
                 ? `Seasonal distribution across complete historical baseline (${seasonalityResult.periodLabel})`
-                : `Recorded incidents through ${seasonalityResult.latestRecordedMonth} • Future months unrecorded`
+                : "Recorded incidents through Sep 2026 • Oct–Dec have no telemetry yet"
             }
             headerAction={
               <span
-                className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
+                className={`text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full border whitespace-nowrap ${
                   seasonalityResult.isHistorical
                     ? 'bg-stone-100 text-stone-700 border-stone-300'
                     : 'bg-emerald-50 text-emerald-800 border-emerald-300'
                 }`}
               >
-                {seasonalityResult.isHistorical ? 'HISTORICAL ARCHIVE' : 'CURRENT YEAR (LIVE YTD)'}
+                {seasonalityResult.isHistorical ? 'HISTORICAL ARCHIVE' : 'CURRENT YEAR — YTD'}
               </span>
             }
             bodyClassName="p-4"
@@ -179,10 +179,21 @@ export const AnalyticsPage: React.FC = () => {
                   <XAxis
                     dataKey="month"
                     stroke="#6D7C78"
-                    tick={{ fontSize: 11 }}
-                    tickFormatter={(value, idx) => {
-                      const item = seasonalityResult.data[idx];
-                      return item?.isFuture ? `${value}*` : value;
+                    tick={({ x, y, payload }) => {
+                      const item = seasonalityResult.data[payload.index];
+                      const isFuture = item?.isFuture;
+                      return (
+                        <text
+                          x={x}
+                          y={y + 12}
+                          textAnchor="middle"
+                          fill={isFuture ? '#A8A29E' : '#44403C'}
+                          fontSize={11}
+                          fontWeight={isFuture ? '400' : '500'}
+                        >
+                          {payload.value}
+                        </text>
+                      );
                     }}
                   />
                   <YAxis stroke="#6D7C78" tick={{ fontSize: 11 }} />
@@ -195,7 +206,7 @@ export const AnalyticsPage: React.FC = () => {
                             <div className="bg-stone-900/95 text-stone-100 p-2.5 rounded-xl border border-stone-700 text-xs shadow-lg backdrop-blur-md">
                               <p className="font-bold text-stone-200">{label} {selectedYear === 'ALL' ? '(Historical)' : selectedYear}</p>
                               <p className="text-amber-400 text-[11px] mt-1 flex items-center gap-1 font-medium">
-                                <span>⚠️ Future Month — No data recorded</span>
+                                <span>⚠️ Future Month — No telemetry yet</span>
                               </p>
                               <p className="text-stone-400 text-[10px] mt-0.5">Telemetry pending until month concludes.</p>
                             </div>
@@ -237,7 +248,7 @@ export const AnalyticsPage: React.FC = () => {
             {/* Note if viewing current year with future months */}
             {!seasonalityResult.isHistorical && (
               <div className="text-[10px] text-stone-400 italic mt-1 flex items-center gap-1">
-                <span>* Asterisk indicates upcoming/future months without telemetry.</span>
+                <span>Oct–Dec are upcoming months without telemetry.</span>
               </div>
             )}
 

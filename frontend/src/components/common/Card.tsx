@@ -33,7 +33,7 @@ export const Card: React.FC<CardProps> = ({
     >
       {(title || headerAction) && (
         <div
-          className={`px-5 py-3.5 border-b border-stone-100 flex items-center justify-between gap-3 ${
+          className={`px-5 py-3.5 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 ${
             topoPattern ? 'topographic-lines bg-stone-50/70' : 'bg-stone-50/50'
           } ${headerClassName}`}
         >
@@ -45,19 +45,19 @@ export const Card: React.FC<CardProps> = ({
             )}
             <div className="min-w-0">
               {title && (
-                <h3 className="text-sm font-semibold text-stone-900 tracking-tight truncate">
+                <h3 className="text-sm font-semibold text-stone-900 tracking-tight leading-snug">
                   {title}
                 </h3>
               )}
               {subtitle && (
-                <p className="text-xs text-stone-500 font-normal truncate mt-0.5">
+                <p className="text-xs text-stone-500 font-normal leading-relaxed mt-0.5">
                   {subtitle}
                 </p>
               )}
             </div>
           </div>
 
-          {headerAction && <div className="shrink-0 flex items-center">{headerAction}</div>}
+          {headerAction && <div className="shrink-0 flex items-center self-start sm:self-center">{headerAction}</div>}
         </div>
       )}
 

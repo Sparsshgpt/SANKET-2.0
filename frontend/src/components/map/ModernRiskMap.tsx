@@ -30,6 +30,8 @@ interface ModernRiskMapProps {
   interactive?: boolean;
   activeRegionId?: string;
   onRegionChange?: (regionId: string) => void;
+  showStationCount?: boolean;
+  totalHotspotsCount?: number;
 }
 
 // Controller to smoothly pan/zoom map when user changes region
@@ -65,6 +67,8 @@ export const ModernRiskMap: React.FC<ModernRiskMapProps> = ({
   interactive = true,
   activeRegionId = 'all_india',
   onRegionChange,
+  showStationCount = true,
+  totalHotspotsCount,
 }) => {
   const [currentRegion, setCurrentRegion] = useState<string>(activeRegionId);
   const [baseTile, setBaseTile] = useState<'topo' | 'satellite' | 'street'>('topo');
@@ -292,38 +296,51 @@ export const ModernRiskMap: React.FC<ModernRiskMapProps> = ({
         </MarkerClusterGroup>
       </MapContainer>
 
-      {/* Top Map Controls Header Bar */}
-      <div className="absolute top-3 inset-x-3 z-[400] flex flex-wrap items-center justify-between gap-2.5 pointer-events-none">
-        {/* Left: Mountain Belts Geographic Filter */}
-        <div className="pointer-events-auto bg-white/95 backdrop-blur-md p-1 rounded-xl border border-stone-200/90 shadow-soft-earth flex items-center gap-1 max-w-full overflow-x-auto">
-          <div className="px-2 py-1 font-bold text-stone-500 tracking-wider text-[10px] flex items-center gap-1.5 shrink-0 uppercase select-none">
-            <Mountain size={12} className="text-mountain-700 shrink-0" />
-            <span>MOUNTAIN BELTS</span>
+      {/* Top Map Controls Header Layer */}
+      <div className="absolute top-3 inset-x-3 z-[400] flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 pointer-events-none">
+        {/* Left Floating Controls Stack: Mountain Belts & Station Count */}
+        <div className="flex flex-col items-start gap-2.5 max-w-full sm:max-w-md pointer-events-none">
+          {/* 1. Mountain Belts Geographic Filter Card */}
+          <div className="pointer-events-auto bg-white/95 backdrop-blur-md p-2.5 rounded-xl border border-stone-200/90 shadow-soft-earth flex flex-col gap-2 w-full sm:w-auto">
+            <div className="px-1 font-bold text-stone-500 tracking-wider text-[10px] flex items-center gap-1.5 shrink-0 uppercase select-none">
+              <Mountain size={12} className="text-mountain-700 shrink-0" />
+              <span>MOUNTAIN BELTS</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 bg-stone-100/90 p-1 rounded-lg">
+              {Object.values(INDIA_REGIONS).map((reg) => {
+                const isActive = currentRegion === reg.id;
+                return (
+                  <button
+                    key={reg.id}
+                    type="button"
+                    onClick={() => handleRegionSwitch(reg.id)}
+                    aria-pressed={isActive}
+                    className={`px-2.5 py-1 rounded-md text-[11px] transition-all duration-150 whitespace-nowrap cursor-pointer ${
+                      isActive
+                        ? 'bg-mountain-800 text-white font-semibold shadow-xs'
+                        : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60 font-medium'
+                    }`}
+                  >
+                    {getRegionLabel(reg.id, reg.name)}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div className="flex items-center gap-1 bg-stone-100/90 p-0.5 rounded-lg shrink-0">
-            {Object.values(INDIA_REGIONS).map((reg) => {
-              const isActive = currentRegion === reg.id;
-              return (
-                <button
-                  key={reg.id}
-                  type="button"
-                  onClick={() => handleRegionSwitch(reg.id)}
-                  aria-pressed={isActive}
-                  className={`px-2.5 py-1 rounded-md text-[11px] transition-all duration-150 whitespace-nowrap ${
-                    isActive
-                      ? 'bg-mountain-800 text-white font-semibold shadow-xs'
-                      : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60 font-medium'
-                  }`}
-                >
-                  {getRegionLabel(reg.id, reg.name)}
-                </button>
-              );
-            })}
-          </div>
+
+          {/* 2. Station Count Badge (Below Mountain Belts with Clear Gap) */}
+          {showStationCount && (
+            <div className="pointer-events-auto bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-stone-200/90 shadow-soft-earth text-xs font-semibold text-stone-700 flex items-center gap-2 select-none">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <span>
+                Showing {displaySpots.length} of {totalHotspotsCount ?? hotspots.length} Indian Mountain Stations
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Right Section: Survey of India Boundary Status & Layer Segmented Toggle */}
-        <div className="flex items-center gap-2 flex-wrap pointer-events-none">
+        {/* Right Floating Controls Stack: Survey of India Boundary Status & Map Style Toggle */}
+        <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2 pointer-events-none shrink-0 self-start sm:self-auto">
           {/* Survey of India Boundary Status & Info */}
           <div ref={boundaryInfoRef} className="pointer-events-auto relative flex items-center">
             <div className="bg-white/95 backdrop-blur-md px-2.5 py-1.5 rounded-xl border border-stone-200/90 shadow-soft-earth text-[11px] font-medium text-stone-700 flex items-center gap-1.5 select-none">
@@ -334,7 +351,7 @@ export const ModernRiskMap: React.FC<ModernRiskMapProps> = ({
                 onClick={() => setShowBoundaryInfo((prev) => !prev)}
                 onMouseEnter={() => setShowBoundaryInfo(true)}
                 onMouseLeave={() => setShowBoundaryInfo(false)}
-                className="text-stone-400 hover:text-stone-700 transition-colors p-0.5 rounded-full hover:bg-stone-100 focus:outline-none flex items-center justify-center ml-0.5"
+                className="text-stone-400 hover:text-stone-700 transition-colors p-0.5 rounded-full hover:bg-stone-100 focus:outline-none flex items-center justify-center ml-0.5 cursor-pointer"
                 aria-label="Boundary Information"
                 title="Boundary details"
               >
@@ -363,7 +380,7 @@ export const ModernRiskMap: React.FC<ModernRiskMapProps> = ({
                 type="button"
                 onClick={() => setBaseTile('topo')}
                 aria-pressed={baseTile === 'topo'}
-                className={`px-2.5 py-1 rounded-md text-[11px] transition-all duration-150 whitespace-nowrap flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 rounded-md text-[11px] transition-all duration-150 whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
                   baseTile === 'topo'
                     ? 'bg-mountain-800 text-white font-semibold shadow-xs'
                     : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60 font-medium'
@@ -376,7 +393,7 @@ export const ModernRiskMap: React.FC<ModernRiskMapProps> = ({
                 type="button"
                 onClick={() => setBaseTile('satellite')}
                 aria-pressed={baseTile === 'satellite'}
-                className={`px-2.5 py-1 rounded-md text-[11px] transition-all duration-150 whitespace-nowrap flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 rounded-md text-[11px] transition-all duration-150 whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
                   baseTile === 'satellite'
                     ? 'bg-mountain-800 text-white font-semibold shadow-xs'
                     : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60 font-medium'

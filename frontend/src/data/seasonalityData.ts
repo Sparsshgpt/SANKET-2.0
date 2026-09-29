@@ -184,8 +184,8 @@ export function getSeasonalityData(selectedPeriod: string = '2026'): {
   return {
     data: currentYearSeries,
     isHistorical: false,
-    periodLabel: `Current Year (${currentYear} Live YTD)`,
-    latestRecordedMonth: `${MONTH_NAMES[Math.min(currentMonthIdx, 11)]} ${currentYear}`,
+    periodLabel: `Current Year (${currentYear} YTD)`,
+    latestRecordedMonth: `Sep ${currentYear}`,
   };
 }
 

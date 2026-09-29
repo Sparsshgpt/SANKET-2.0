@@ -260,6 +260,7 @@ export const DashboardPage: React.FC = () => {
           >
             <ModernRiskMap
               hotspots={filteredHotspots}
+              totalHotspotsCount={hotspots.length}
               onHotspotSelect={(spot) => setSelectedHotspot(spot)}
               activeRegionId={activeRegion}
               onRegionChange={(reg) => setActiveRegion(reg)}

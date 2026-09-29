@@ -204,19 +204,12 @@ export const MapExplorerPage: React.FC = () => {
         >
           <ModernRiskMap
             hotspots={filteredSpots}
+            totalHotspotsCount={hotspots.length}
             onHotspotSelect={(spot) => setSelectedHotspot(spot)}
             activeRegionId={activeRegion}
             onRegionChange={(reg) => setActiveRegion(reg)}
             height="100%"
           />
-
-          {/* Filter Status Badge */}
-          <div className="absolute top-14 left-3 bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-stone-200 shadow-md text-xs font-semibold text-stone-700 z-[400] pointer-events-auto flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>
-              Showing {filteredSpots.length} of {hotspots.length} Indian Mountain Stations
-            </span>
-          </div>
         </div>
 
         {/* Collapsible Station List Sidebar */}
